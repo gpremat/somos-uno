@@ -20,9 +20,9 @@ const DIFFICULTIES = {
 };
 
 const POWER_TYPES = {
-  angel: { label: 'Ángel Guardián', icon: '😇', color: '#4ecca3', weight: 40 },
-  reloj: { label: 'Reloj de Arena', icon: '⌛', color: '#4361ee', weight: 40 },
-  vision: { label: 'Visión Infinita', icon: '👁️', color: '#f0c040', weight: 20 },
+  angel: { label: 'Ángel Guardián', icon: '😇', color: '#39ff14', weight: 40 },
+  reloj: { label: 'Reloj de Arena', icon: '⌛', color: '#00d4ff', weight: 40 },
+  vision: { label: 'Visión Infinita', icon: '👁️', color: '#ffe600', weight: 20 },
 };
 
 function weightedRandom() {
@@ -81,8 +81,8 @@ io.on('connection', (socket) => {
       creator: socket.id,
       gameState: null,
       timer: null,
-      powers: [null, null],
-      powersConfirmed: [false, false],
+      teamPower: null,
+      teamPowerConfirmed: false,
     };
     currentRoom = roomCode;
     playerIndex = 0;
@@ -113,8 +113,8 @@ io.on('connection', (socket) => {
     if (room.players.length < 2) return;
     if (room.gameState) return;
 
-    room.powers = [null, null];
-    room.powersConfirmed = [false, false];
+    room.teamPower = null;
+    room.teamPowerConfirmed = false;
 
     io.to(currentRoom).emit('roulette_phase');
   });
@@ -122,19 +122,15 @@ io.on('connection', (socket) => {
   socket.on('roulette_spin', () => {
     const room = rooms[currentRoom];
     if (!room) return;
-    if (playerIndex === null) return;
-    if (room.powersConfirmed[playerIndex]) return;
+    if (room.teamPowerConfirmed) return;
 
     const power = weightedRandom();
-    room.powers[playerIndex] = power;
-    room.powersConfirmed[playerIndex] = true;
+    room.teamPower = power;
+    room.teamPowerConfirmed = true;
 
     io.to(currentRoom).emit('roulette_result', {
-      playerIndex,
       power,
       powerData: POWER_TYPES[power],
-      bothComplete: room.powersConfirmed[0] && room.powersConfirmed[1],
-      powers: room.powers,
     });
   });
 
@@ -160,7 +156,7 @@ io.on('connection', (socket) => {
       playedCards: [],
       startTime: Date.now(),
       timeBonus: 0,
-      powersUsed: [false, false],
+      powerUsed: false,
     };
 
     io.to(room.players[0].id).emit('game_start', {
@@ -169,7 +165,7 @@ io.on('connection', (socket) => {
       difficulty: diff,
       startTime: room.gameState.startTime,
       duration: diff.time * 1000,
-      powers: room.powers,
+      teamPower: room.teamPower,
     });
     io.to(room.players[1].id).emit('game_start', {
       cards: p2Cards,
@@ -177,7 +173,7 @@ io.on('connection', (socket) => {
       difficulty: diff,
       startTime: room.gameState.startTime,
       duration: diff.time * 1000,
-      powers: room.powers,
+      teamPower: room.teamPower,
     });
 
     const timerInterval = setInterval(() => {
@@ -222,16 +218,13 @@ io.on('connection', (socket) => {
         io.to(currentRoom).emit('game_victory', {
           timeRemaining: Math.max(0, diff.time + state.timeBonus - elapsed),
           difficulty: diff,
-          powers: room.powers,
-          powersUsed: state.powersUsed,
         });
         setTimeout(() => delete rooms[currentRoom], 2000);
       }
     } else {
-      const myPower = room.powers[playerIndex];
-      if (myPower === 'angel' && !state.powersUsed[playerIndex]) {
-        state.powersUsed[playerIndex] = true;
-        io.to(currentRoom).emit('angel_saved', { playerIndex, card });
+      if (room.teamPower === 'angel' && !state.powerUsed) {
+        state.powerUsed = true;
+        io.to(currentRoom).emit('angel_saved');
       } else {
         clearInterval(room.timer);
         io.to(currentRoom).emit('game_defeat', { reason: 'wrong_card', card, expected });
@@ -243,20 +236,17 @@ io.on('connection', (socket) => {
   socket.on('use_power', ({ power }) => {
     const room = rooms[currentRoom];
     if (!room || !room.gameState) return;
-    if (playerIndex === null) return;
     const state = room.gameState;
-    if (state.powersUsed[playerIndex]) return;
-    if (room.powers[playerIndex] !== power) return;
+    if (state.powerUsed) return;
+    if (room.teamPower !== power) return;
 
-    state.powersUsed[playerIndex] = true;
+    state.powerUsed = true;
 
     if (power === 'reloj') {
       state.timeBonus += 10;
-      io.to(currentRoom).emit('reloj_used', { playerIndex });
+      io.to(currentRoom).emit('reloj_used');
     } else if (power === 'vision') {
-      const allCards = state.p1Cards.concat(state.p2Cards);
       io.to(currentRoom).emit('vision_reveal', {
-        playerIndex,
         player0Cards: state.p1Cards,
         player1Cards: state.p2Cards,
       });

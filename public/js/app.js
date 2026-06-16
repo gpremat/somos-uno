@@ -5,10 +5,10 @@ let isCreator = false;
 let cards = [];
 let canPlay = true;
 let lastPlayTime = 0;
-let myPower = null;
-let myPowerUsed = false;
+let teamPower = null;
+let powerUsed = false;
 
-const ROUETTE_ANGLES = {
+const ROULETTE_ANGLES = {
   angel: 1740,
   reloj: 1620,
   vision: 1500,
@@ -38,8 +38,8 @@ function goHome() {
   myPlayerIndex = null;
   isCreator = false;
   canPlay = true;
-  myPower = null;
-  myPowerUsed = false;
+  teamPower = null;
+  powerUsed = false;
 }
 
 // Difficulty selector
@@ -98,7 +98,7 @@ function startRoulette() {
 // Spin roulette
 function spinRoulette() {
   document.getElementById('btn-spin').disabled = true;
-  document.getElementById('btn-spin').textContent = 'Girando...';
+  document.getElementById('btn-spin').textContent = '🎲 Girando...';
   socket.emit('roulette_spin');
 }
 
@@ -118,9 +118,10 @@ function playCard(card) {
 }
 
 // Use a power
-function usePower(power) {
-  if (myPowerUsed) return;
-  socket.emit('use_power', { power });
+function usePower() {
+  if (powerUsed || !teamPower) return;
+  if (teamPower === 'angel') return;
+  socket.emit('use_power', { power: teamPower });
 }
 
 // ====== SOCKET EVENTS ======
@@ -191,51 +192,41 @@ socket.on('lobby_update', (data) => {
 socket.on('roulette_phase', () => {
   showScreen('roulette');
   document.getElementById('btn-spin').disabled = false;
-  document.getElementById('btn-spin').textContent = 'GIRAR RULETA';
-  document.getElementById('my-power-result').style.display = 'none';
+  document.getElementById('btn-spin').textContent = '🎲 GIRAR RULETA';
+  document.getElementById('team-power-result').style.display = 'none';
   document.getElementById('btn-begin-game').style.display = 'none';
-  document.getElementById('pps-status-0').textContent = '⏳ Girando...';
-  document.getElementById('pps-status-1').textContent = '⏳ Girando...';
-  document.getElementById('player-power-0').classList.remove('done');
-  document.getElementById('player-power-1').classList.remove('done');
+  document.getElementById('tps-status').textContent = '⏳ Girando...';
+  document.getElementById('team-power-display').classList.remove('done');
 
   const wheel = document.getElementById('wheel');
   wheel.style.transform = 'rotate(0deg)';
-  myPower = null;
-  myPowerUsed = false;
+  teamPower = null;
+  powerUsed = false;
 });
 
 // Roulette result
 socket.on('roulette_result', (data) => {
-  const { playerIndex, power, powerData, bothComplete, powers } = data;
+  const { power, powerData } = data;
 
-  // Animate wheel if it's our result
-  if (playerIndex === myPlayerIndex) {
-    const wheel = document.getElementById('wheel');
-    const angle = ROUETTE_ANGLES[power];
-    wheel.style.transform = `rotate(${angle}deg)`;
+  // Animate the wheel
+  const wheel = document.getElementById('wheel');
+  const angle = ROULETTE_ANGLES[power];
+  wheel.style.transform = `rotate(${angle}deg)`;
 
-    setTimeout(() => {
-      document.getElementById('my-power-icon').textContent = powerData.icon;
-      document.getElementById('my-power-name').textContent = powerData.label;
-      document.getElementById('my-power-result').style.display = 'flex';
-      document.getElementById('my-power-result').style.borderColor = powerData.color;
-      myPower = power;
-    }, 3200);
-  }
+  setTimeout(() => {
+    document.getElementById('team-power-icon').textContent = powerData.icon;
+    document.getElementById('team-power-name').textContent = powerData.label;
+    document.getElementById('team-power-result').style.display = 'flex';
+    document.getElementById('team-power-result').style.borderColor = powerData.color;
+    teamPower = power;
+  }, 3200);
 
-  // Update status
-  const slot = document.getElementById(`player-power-${playerIndex}`);
-  const status = document.getElementById(`pps-status-${playerIndex}`);
-  slot.classList.add('done');
-  status.textContent = `${powerData.icon} ${powerData.label}`;
+  // Update team status
+  document.getElementById('tps-status').textContent = `${powerData.icon} ${powerData.label}`;
+  document.getElementById('team-power-display').classList.add('done');
 
-  if (bothComplete) {
-    if (isCreator) {
-      document.getElementById('btn-begin-game').style.display = 'block';
-    } else {
-      document.getElementById('btn-begin-game').style.display = 'none';
-    }
+  if (isCreator) {
+    document.getElementById('btn-begin-game').style.display = 'block';
   }
 });
 
@@ -243,8 +234,8 @@ socket.on('roulette_result', (data) => {
 socket.on('game_start', (data) => {
   cards = data.cards;
   myPlayerIndex = data.playerIndex;
-  myPower = data.powers[myPlayerIndex];
-  myPowerUsed = false;
+  teamPower = data.teamPower;
+  powerUsed = false;
   showScreen('game');
   renderGame(data);
 });
@@ -271,56 +262,42 @@ function renderGame(data) {
   document.getElementById('lobby-difficulty').innerHTML =
     `<span class="diff-badge">${diff.label} · ${diff.cards} cartas · ${diff.time}s</span>`;
 
-  const p0 = document.getElementById('player-badge-0');
-  const p1 = document.getElementById('player-badge-1');
-  p0.textContent = 'Jugador 1';
-  p1.textContent = 'Jugador 2';
+  document.getElementById('player-badge-0').textContent = 'Jugador 1';
+  document.getElementById('player-badge-1').textContent = 'Jugador 2';
 
-  // Show powers bar
-  renderPowersBar(data.powers);
+  renderTeamPowerBar();
 
   const startTime = data.startTime;
   const duration = data.duration;
   startLocalTimer(startTime, duration);
 }
 
-function renderPowersBar(powers) {
+function renderTeamPowerBar() {
   const bar = document.getElementById('game-powers-bar');
   bar.innerHTML = '';
-  const myPowerLabel = powers[myPlayerIndex];
-  if (!myPowerLabel) return;
+  if (!teamPower) return;
 
   const icons = { angel: '😇', reloj: '⌛', vision: '👁️' };
   const labels = { angel: 'Ángel Guardián', reloj: 'Reloj de Arena', vision: 'Visión Infinita' };
+  const colors = { angel: '#39ff14', reloj: '#00d4ff', vision: '#ffe600' };
 
-  // My power button
-  const myBtn = document.createElement('button');
-  myBtn.className = 'btn-power';
-  myBtn.id = 'btn-use-power';
-  myBtn.innerHTML = `${icons[myPowerLabel]} ${labels[myPowerLabel]}`;
+  const btn = document.createElement('button');
+  btn.className = 'btn-power';
+  btn.id = 'btn-use-power';
+  btn.style.borderColor = colors[teamPower];
+  btn.innerHTML = `${icons[teamPower]} ${labels[teamPower]} del equipo`;
 
-  if (myPowerLabel === 'angel') {
-    myBtn.disabled = true;
-    myBtn.title = 'Se activa automáticamente';
+  if (teamPower === 'angel') {
+    btn.disabled = true;
+    btn.title = 'Se activa automáticamente al equivocarse';
   } else {
-    myBtn.addEventListener('click', () => {
-      usePower(myPowerLabel);
-      myBtn.disabled = true;
-      myBtn.classList.add('used');
+    btn.addEventListener('click', () => {
+      usePower();
+      btn.disabled = true;
+      btn.classList.add('used');
     });
   }
-  bar.appendChild(myBtn);
-
-  // Opponent power (just display)
-  const oppIdx = myPlayerIndex === 0 ? 1 : 0;
-  const oppPower = powers[oppIdx];
-  if (oppPower) {
-    const oppLabel = document.createElement('span');
-    oppLabel.className = 'btn-power';
-    oppLabel.style.cursor = 'default';
-    oppLabel.innerHTML = `${icons[oppPower]} ${labels[oppPower]} (oponente)`;
-    bar.appendChild(oppLabel);
-  }
+  bar.appendChild(btn);
 }
 
 let timerAnimFrame = null;
@@ -390,16 +367,19 @@ socket.on('card_played', (data) => {
 });
 
 // Angel saved
-socket.on('angel_saved', (data) => {
+socket.on('angel_saved', () => {
   const notif = document.getElementById('angel-notification');
   notif.style.display = 'block';
   setTimeout(() => {
     notif.style.display = 'none';
   }, 2000);
 
-  myPowerUsed = true;
-  document.getElementById('btn-use-power').classList.add('used');
-  document.getElementById('btn-use-power').textContent = '😇 Ángel Guardián (usado)';
+  powerUsed = true;
+  const btn = document.getElementById('btn-use-power');
+  if (btn) {
+    btn.classList.add('used');
+    btn.textContent = '😇 Ángel Guardián (usado)';
+  }
 
   setTimeout(() => {
     canPlay = true;
@@ -407,15 +387,18 @@ socket.on('angel_saved', (data) => {
 });
 
 // Reloj used
-socket.on('reloj_used', (data) => {
+socket.on('reloj_used', () => {
   const notif = document.createElement('div');
   notif.className = 'reloj-notification';
-  notif.textContent = '⌛ +10 segundos';
+  notif.textContent = '⌛ +10 segundos para el equipo';
   document.body.appendChild(notif);
   setTimeout(() => notif.remove(), 2000);
 
-  if (data.playerIndex === myPlayerIndex) {
-    myPowerUsed = true;
+  powerUsed = true;
+  const btn = document.getElementById('btn-use-power');
+  if (btn) {
+    btn.classList.add('used');
+    btn.textContent = '⌛ Reloj de Arena (usado)';
   }
 });
 
@@ -439,13 +422,13 @@ socket.on('vision_reveal', (data) => {
   renderVisionHand('vision-cards-0', data.player0Cards);
   renderVisionHand('vision-cards-1', data.player1Cards);
 
-  // Show which player activated it
-  const label = document.querySelector('.vision-title');
-  const activator = data.playerIndex === myPlayerIndex ? 'Tú' : 'Tu compañero';
-  label.innerHTML = `👁️ ${activator} activó Visión Infinita`;
+  document.querySelector('.vision-title').innerHTML = '👁️ Visión Infinita activada';
 
-  if (data.playerIndex === myPlayerIndex) {
-    myPowerUsed = true;
+  powerUsed = true;
+  const btn = document.getElementById('btn-use-power');
+  if (btn) {
+    btn.classList.add('used');
+    btn.textContent = '👁️ Visión Infinita (usada)';
   }
 });
 
@@ -493,8 +476,8 @@ socket.on('player_left', () => {
     cards = [];
     myPlayerIndex = null;
     isCreator = false;
-    myPower = null;
-    myPowerUsed = false;
+    teamPower = null;
+    powerUsed = false;
   }
 });
 

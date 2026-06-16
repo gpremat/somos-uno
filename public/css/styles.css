@@ -526,11 +526,11 @@ h2 {
 }
 
 .vs-text {
-  font-size: 0.9rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: var(--pink);
+  color: var(--green);
   letter-spacing: 0.05em;
-  text-shadow: 0 0 20px var(--pink-glow);
+  text-shadow: 0 0 20px var(--green-glow);
 }
 
 .diff-badge {
@@ -677,45 +677,45 @@ h2 {
   font-size: 1.1rem;
 }
 
-.roulette-players-status {
-  display: flex;
-  gap: 10px;
+.team-power-slot {
   width: 100%;
 }
 
-.player-power-slot {
-  flex: 1;
+.team-power-display {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 12px;
+  padding: 14px;
   background: rgba(255,255,255,0.05);
   border: 2px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(4px);
+  transition: all var(--transition);
 }
 
-.player-power-slot.done {
+.team-power-display.done {
   border-color: var(--green);
   background: rgba(57,255,20,0.06);
   box-shadow: 0 0 20px var(--green-glow);
 }
 
-.pps-label {
-  font-size: 0.7rem;
+.tps-label {
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.pps-status {
-  font-size: 0.85rem;
+.tps-status {
+  font-size: 1.1rem;
   color: var(--text-secondary);
+  font-weight: 600;
 }
 
-.player-power-slot.done .pps-status {
+.team-power-display.done .tps-status {
   color: var(--green);
-  font-weight: 600;
 }
 
 /* GAME */

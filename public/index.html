@@ -91,7 +91,7 @@
           <span class="player-status" id="player-status-0">Conectado</span>
         </div>
         <div class="player-divider">
-          <div class="vs-text">VS</div>
+          <div class="vs-text">+</div>
         </div>
         <div class="player-slot" id="player-slot-1">
           <div class="player-indicator">
@@ -104,7 +104,7 @@
       <div class="lobby-difficulty" id="lobby-difficulty">
         <span class="diff-badge">Fácil · 3 cartas · 40s</span>
       </div>
-      <button class="btn btn-primary" id="btn-start-roulette" onclick="startRoulette()" style="display:none">GIRAR RULETA</button>
+      <button class="btn btn-primary" id="btn-start-roulette" onclick="startRoulette()" style="display:none">🎡 GIRAR RULETA</button>
       <p id="lobby-waiting" class="waiting-text">Esperando al anfitrión...</p>
     </div>
   </div>
@@ -112,10 +112,10 @@
   <!-- ROULETTE -->
   <div id="screen-roulette" class="screen">
     <div class="roulette-content">
-      <h2>Preparación</h2>
-      <p class="roulette-subtitle">Girá la ruleta para obtener un poder</p>
+      <h2>🎡 Poder del Equipo</h2>
+      <p class="roulette-subtitle">Giren la ruleta para obtener un poder especial compartido</p>
 
-      <div class="roulette-wheel-section" id="my-roulette-section">
+      <div class="roulette-wheel-section">
         <div class="wheel-wrapper">
           <div class="wheel-pointer">▼</div>
           <div class="wheel" id="wheel">
@@ -124,25 +124,22 @@
             <div class="wheel-label wl-vision">👁️</div>
           </div>
         </div>
-        <button class="btn btn-primary" id="btn-spin" onclick="spinRoulette()">GIRAR RULETA</button>
-        <div id="my-power-result" class="power-result" style="display:none">
-          <span class="power-result-icon" id="my-power-icon"></span>
-          <span class="power-result-name" id="my-power-name"></span>
+        <button class="btn btn-primary" id="btn-spin" onclick="spinRoulette()">🎲 GIRAR RULETA</button>
+      </div>
+
+      <div id="team-power-result" class="power-result" style="display:none">
+        <span class="power-result-icon" id="team-power-icon"></span>
+        <span class="power-result-name" id="team-power-name"></span>
+      </div>
+
+      <div class="team-power-slot" id="team-power-slot">
+        <div class="team-power-display" id="team-power-display">
+          <span class="tps-label">⚡ Poder del equipo</span>
+          <span class="tps-status" id="tps-status">⏳ Girando...</span>
         </div>
       </div>
 
-      <div class="roulette-players-status" id="roulette-players-status">
-        <div class="player-power-slot" id="player-power-0">
-          <span class="pps-label">Jugador 1</span>
-          <span class="pps-status" id="pps-status-0">⏳ Girando...</span>
-        </div>
-        <div class="player-power-slot" id="player-power-1">
-          <span class="pps-label">Jugador 2</span>
-          <span class="pps-status" id="pps-status-1">⏳ Girando...</span>
-        </div>
-      </div>
-
-      <button class="btn btn-primary" id="btn-begin-game" onclick="beginGame()" style="display:none">EMPEZAR PARTIDA</button>
+      <button class="btn btn-primary" id="btn-begin-game" onclick="beginGame()" style="display:none">🔥 EMPEZAR PARTIDA</button>
     </div>
   </div>
 
@@ -193,7 +190,7 @@
 
   <!-- ANGEL SAVED NOTIFICATION -->
   <div id="angel-notification" class="angel-notification" style="display:none">
-    <span>😇 ¡Ángel Guardián te ha salvado!</span>
+    <span>😇 ¡Ángel Guardián salvó al equipo!</span>
   </div>
 
   <!-- VICTORY -->
