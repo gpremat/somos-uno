@@ -1,0 +1,14 @@
+{
+  "name": "somos-uno",
+  "version": "1.0.0",
+  "description": "Juego cooperativo online para 2 jugadores",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4"
+  }
+}
