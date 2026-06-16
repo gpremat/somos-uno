@@ -31,6 +31,14 @@
     <div class="create-room-content">
       <button class="btn-back" onclick="showScreen('home')">← Volver</button>
       <h2>Crear Sala</h2>
+      <div class="players-selector">
+        <p class="section-label">Jugadores</p>
+        <div class="players-options" id="players-options">
+          <button class="player-count-btn selected" data-players="2">2 👥</button>
+          <button class="player-count-btn" data-players="3">3 👥</button>
+          <button class="player-count-btn" data-players="4">4 👥</button>
+        </div>
+      </div>
       <div class="difficulty-selector">
         <p class="section-label">Dificultad</p>
         <div class="difficulty-options" id="difficulty-options">
@@ -82,30 +90,12 @@
         <p class="lobby-label">Código de sala</p>
         <div class="room-code-display" id="room-code-display">------</div>
       </div>
-      <div class="lobby-players">
-        <div class="player-slot" id="player-slot-0">
-          <div class="player-indicator">
-            <div class="player-dot"></div>
-            <span class="player-name">Jugador 1</span>
-          </div>
-          <span class="player-status" id="player-status-0">Conectado</span>
-        </div>
-        <div class="player-divider">
-          <div class="vs-text">+</div>
-        </div>
-        <div class="player-slot" id="player-slot-1">
-          <div class="player-indicator">
-            <div class="player-dot waiting"></div>
-            <span class="player-name">Jugador 2</span>
-          </div>
-          <span class="player-status" id="player-status-1">Esperando...</span>
-        </div>
-      </div>
+      <div class="lobby-players" id="lobby-players"></div>
       <div class="lobby-difficulty" id="lobby-difficulty">
         <span class="diff-badge">Fácil · 3 cartas · 40s</span>
       </div>
       <button class="btn btn-primary" id="btn-start-roulette" onclick="startRoulette()" style="display:none">🎡 GIRAR RULETA</button>
-      <p id="lobby-waiting" class="waiting-text">Esperando al anfitrión...</p>
+      <p id="lobby-waiting" class="waiting-text">Esperando jugadores...</p>
     </div>
   </div>
 
@@ -147,14 +137,14 @@
   <div id="screen-game" class="screen">
     <div class="game-content">
       <div class="game-top-bar">
-        <div class="player-badge" id="player-badge-0">Jugador 1</div>
+        <div class="player-badge" id="player-badge-0">Tú</div>
         <div class="timer-container" id="timer-container">
           <div class="timer-bar-bg">
             <div class="timer-bar-fill" id="timer-bar-fill"></div>
           </div>
           <div class="timer-text" id="timer-text">00:00</div>
         </div>
-        <div class="player-badge" id="player-badge-1">Jugador 2</div>
+        <div class="player-badge" id="player-badge-1">Equipo</div>
       </div>
 
       <div class="game-powers-bar" id="game-powers-bar"></div>
@@ -175,16 +165,7 @@
   <div id="vision-overlay" class="vision-overlay" style="display:none">
     <div class="vision-content">
       <p class="vision-title">👁️ Visión Infinita</p>
-      <div class="vision-cards-container">
-        <div class="vision-hand">
-          <p class="vision-hand-label">Jugador 1</p>
-          <div class="vision-cards" id="vision-cards-0"></div>
-        </div>
-        <div class="vision-hand">
-          <p class="vision-hand-label">Jugador 2</p>
-          <div class="vision-cards" id="vision-cards-1"></div>
-        </div>
-      </div>
+      <div class="vision-cards-container" id="vision-cards-container"></div>
     </div>
   </div>
 
@@ -202,8 +183,12 @@
         <p class="result-difficulty" id="victory-difficulty">Fácil</p>
         <p class="result-time" id="victory-time">Tiempo restante: 00:00</p>
       </div>
-      <div class="result-cards" id="victory-cards"></div>
-      <button class="btn btn-primary" onclick="goHome()">VOLVER AL INICIO</button>
+      <div id="victory-actions" class="result-actions">
+        <button class="btn btn-primary" id="btn-play-again" onclick="requestRematch()" style="display:none">🔥 DE NUEVO!</button>
+        <button class="btn btn-secondary" id="btn-change-diff-v" onclick="showChangeSettings()" style="display:none">⚙️ CAMBIAR DIFICULTAD</button>
+      </div>
+      <div id="victory-waiting" class="waiting-text" style="display:none">Esperando al anfitrión...</div>
+      <button class="btn btn-back-result" onclick="goHome()">🏠 VOLVER AL INICIO</button>
     </div>
   </div>
 
@@ -215,7 +200,46 @@
       <div class="result-details">
         <p class="result-reason" id="defeat-reason"></p>
       </div>
-      <button class="btn btn-primary" onclick="goHome()">VOLVER AL INICIO</button>
+      <div id="defeat-actions" class="result-actions">
+        <button class="btn btn-primary" id="btn-retry" onclick="requestRematch()" style="display:none">🔄 REINTENTAR</button>
+        <button class="btn btn-secondary" id="btn-change-diff-d" onclick="showChangeSettings()" style="display:none">⚙️ CAMBIAR DIFICULTAD</button>
+      </div>
+      <div id="defeat-waiting" class="waiting-text" style="display:none">Esperando al anfitrión...</div>
+      <button class="btn btn-back-result" onclick="goHome()">🏠 VOLVER AL INICIO</button>
+    </div>
+  </div>
+
+  <!-- CHANGE SETTINGS -->
+  <div id="screen-change-settings" class="screen">
+    <div class="create-room-content">
+      <button class="btn-back" onclick="cancelChangeSettings()">← Volver</button>
+      <h2>⚙️ Cambiar Dificultad</h2>
+      <div class="difficulty-selector">
+        <p class="section-label">Nueva dificultad</p>
+        <div class="difficulty-options" id="change-difficulty-options">
+          <button class="diff-btn" data-difficulty="easy">
+            <span class="diff-name">Fácil</span>
+            <span class="diff-detail">3 cartas · 40s</span>
+          </button>
+          <button class="diff-btn" data-difficulty="medium">
+            <span class="diff-name">Medio</span>
+            <span class="diff-detail">4 cartas · 30s</span>
+          </button>
+          <button class="diff-btn" data-difficulty="hard">
+            <span class="diff-name">Difícil</span>
+            <span class="diff-detail">5 cartas · 20s</span>
+          </button>
+          <button class="diff-btn" data-difficulty="impossible">
+            <span class="diff-name">¡Imposible!</span>
+            <span class="diff-detail">6 cartas · 15s</span>
+          </button>
+          <button class="diff-btn" data-difficulty="somosuno">
+            <span class="diff-name">Somos Uno</span>
+            <span class="diff-detail">7 cartas · 10s</span>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="applySettings()">✅ APLICAR</button>
     </div>
   </div>
 

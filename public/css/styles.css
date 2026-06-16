@@ -298,6 +298,92 @@ body::after {
   background: rgba(255,255,255,0.12);
 }
 
+/* Player count selector */
+.players-selector {
+  width: 100%;
+}
+
+.players-options {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.player-count-btn {
+  flex: 1;
+  max-width: 100px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-fun);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  backdrop-filter: blur(4px);
+}
+
+.player-count-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--text-muted);
+  transform: translateY(-2px);
+}
+
+.player-count-btn.selected {
+  border-color: var(--cyan);
+  background: rgba(0,212,255,0.1);
+  box-shadow: 0 0 30px var(--cyan-glow);
+}
+
+/* Host tag in lobby */
+.host-tag {
+  font-size: 0.65rem;
+  color: var(--yellow);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+/* Result action buttons */
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.result-actions .btn {
+  width: 100%;
+}
+
+.btn-back-result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 50px;
+  font-family: var(--font-fun);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(4px);
+  margin-top: 6px;
+}
+
+.btn-back-result:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-2px);
+}
+
 /* Create Room */
 .create-room-content, .join-room-content {
   text-align: center;
@@ -456,8 +542,10 @@ h2 {
 .lobby-players {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .player-slot {

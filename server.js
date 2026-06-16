@@ -61,6 +61,7 @@ function emitLobbyUpdate(roomCode) {
     creator: room.creator,
     difficulty: DIFFICULTIES[room.difficulty],
     difficultyKey: room.difficulty,
+    maxPlayers: room.maxPlayers,
   });
 }
 
@@ -68,16 +69,18 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let playerIndex = null;
 
-  socket.on('create_room', ({ difficulty }) => {
+  socket.on('create_room', ({ difficulty, maxPlayers }) => {
     if (!DIFFICULTIES[difficulty]) {
       socket.emit('error', { message: 'Dificultad inválida' });
       return;
     }
+    const numPlayers = Math.max(2, Math.min(4, parseInt(maxPlayers) || 2));
     const roomCode = generateRoomCode();
     rooms[roomCode] = {
       code: roomCode,
       players: [{ id: socket.id }],
       difficulty,
+      maxPlayers: numPlayers,
       creator: socket.id,
       gameState: null,
       timer: null,
@@ -87,7 +90,7 @@ io.on('connection', (socket) => {
     currentRoom = roomCode;
     playerIndex = 0;
     socket.join(roomCode);
-    socket.emit('room_created', { code: roomCode, difficulty });
+    socket.emit('room_created', { code: roomCode, difficulty, maxPlayers: numPlayers });
     emitLobbyUpdate(roomCode);
   });
 
@@ -95,14 +98,14 @@ io.on('connection', (socket) => {
     const roomCode = code.toUpperCase();
     const room = rooms[roomCode];
     if (!room) return socket.emit('error', { message: 'Sala no encontrada' });
-    if (room.players.length >= 2) return socket.emit('error', { message: 'Sala llena' });
+    if (room.players.length >= room.maxPlayers) return socket.emit('error', { message: 'Sala llena' });
     if (room.gameState) return socket.emit('error', { message: 'La partida ya comenzó' });
 
     room.players.push({ id: socket.id });
     currentRoom = roomCode;
-    playerIndex = 1;
+    playerIndex = room.players.length - 1;
     socket.join(roomCode);
-    socket.emit('room_joined', { code: roomCode, difficulty: room.difficulty });
+    socket.emit('room_joined', { code: roomCode, difficulty: room.difficulty, playerIndex });
     emitLobbyUpdate(roomCode);
   });
 
@@ -138,19 +141,20 @@ io.on('connection', (socket) => {
     const room = rooms[currentRoom];
     if (!room) return;
     if (socket.id !== room.creator) return socket.emit('error', { message: 'Solo el creador puede iniciar' });
-    if (room.players.length < 2) return socket.emit('error', { message: 'Se necesitan 2 jugadores' });
+    if (room.players.length < 2) return socket.emit('error', { message: 'Se necesitan al menos 2 jugadores' });
     if (room.gameState) return;
 
     const diff = DIFFICULTIES[room.difficulty];
-    const allCards = generateCards(diff.cards * 2);
-    const half = diff.cards;
-    const p1Cards = allCards.slice(0, half).sort((a, b) => a - b);
-    const p2Cards = allCards.slice(half).sort((a, b) => a - b);
-    const sortedAll = [...p1Cards, ...p2Cards].sort((a, b) => a - b);
+    const totalCards = diff.cards * room.players.length;
+    const allCards = generateCards(totalCards);
+    const playerCards = [];
+    for (let i = 0; i < room.players.length; i++) {
+      playerCards.push(allCards.slice(i * diff.cards, (i + 1) * diff.cards).sort((a, b) => a - b));
+    }
+    const sortedAll = [...allCards].sort((a, b) => a - b);
 
     room.gameState = {
-      p1Cards,
-      p2Cards,
+      playerCards,
       sortedAll,
       nextIndex: 0,
       playedCards: [],
@@ -159,21 +163,16 @@ io.on('connection', (socket) => {
       powerUsed: false,
     };
 
-    io.to(room.players[0].id).emit('game_start', {
-      cards: p1Cards,
-      playerIndex: 0,
-      difficulty: diff,
-      startTime: room.gameState.startTime,
-      duration: diff.time * 1000,
-      teamPower: room.teamPower,
-    });
-    io.to(room.players[1].id).emit('game_start', {
-      cards: p2Cards,
-      playerIndex: 1,
-      difficulty: diff,
-      startTime: room.gameState.startTime,
-      duration: diff.time * 1000,
-      teamPower: room.teamPower,
+    room.players.forEach((player, i) => {
+      io.to(player.id).emit('game_start', {
+        cards: playerCards[i],
+        playerIndex: i,
+        numPlayers: room.players.length,
+        difficulty: diff,
+        startTime: room.gameState.startTime,
+        duration: diff.time * 1000,
+        teamPower: room.teamPower,
+      });
     });
 
     const timerInterval = setInterval(() => {
@@ -188,8 +187,9 @@ io.on('connection', (socket) => {
 
       if (remaining <= 0) {
         clearInterval(timerInterval);
+        room.gameState = null;
+        room.timer = null;
         io.to(currentRoom).emit('game_defeat', { reason: 'time' });
-        setTimeout(() => delete rooms[currentRoom], 2000);
       }
     }, 200);
     room.timer = timerInterval;
@@ -213,13 +213,14 @@ io.on('connection', (socket) => {
       });
       if (state.nextIndex >= state.sortedAll.length) {
         clearInterval(room.timer);
+        room.gameState = null;
+        room.timer = null;
         const elapsed = (Date.now() - state.startTime) / 1000;
         const diff = DIFFICULTIES[room.difficulty];
         io.to(currentRoom).emit('game_victory', {
           timeRemaining: Math.max(0, diff.time + state.timeBonus - elapsed),
           difficulty: diff,
         });
-        setTimeout(() => delete rooms[currentRoom], 2000);
       }
     } else {
       if (room.teamPower === 'angel' && !state.powerUsed) {
@@ -227,8 +228,9 @@ io.on('connection', (socket) => {
         io.to(currentRoom).emit('angel_saved');
       } else {
         clearInterval(room.timer);
+        room.gameState = null;
+        room.timer = null;
         io.to(currentRoom).emit('game_defeat', { reason: 'wrong_card', card, expected });
-        setTimeout(() => delete rooms[currentRoom], 2000);
       }
     }
   });
@@ -247,8 +249,8 @@ io.on('connection', (socket) => {
       io.to(currentRoom).emit('reloj_used');
     } else if (power === 'vision') {
       io.to(currentRoom).emit('vision_reveal', {
-        player0Cards: state.p1Cards,
-        player1Cards: state.p2Cards,
+        playerCards: state.playerCards,
+        numPlayers: room.players.length,
       });
       setTimeout(() => {
         io.to(currentRoom).emit('vision_hide');
@@ -256,12 +258,45 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('request_rematch', () => {
+    const room = rooms[currentRoom];
+    if (!room) return;
+    if (socket.id !== room.creator) return;
+    if (room.gameState) return;
+
+    room.teamPower = null;
+    room.teamPowerConfirmed = false;
+
+    io.to(currentRoom).emit('roulette_phase');
+  });
+
+  socket.on('change_settings', ({ difficulty }) => {
+    const room = rooms[currentRoom];
+    if (!room) return;
+    if (socket.id !== room.creator) return;
+    if (!DIFFICULTIES[difficulty]) return;
+
+    room.difficulty = difficulty;
+    emitLobbyUpdate(currentRoom);
+  });
+
   function leaveCurrentRoom() {
     if (currentRoom && rooms[currentRoom]) {
       const room = rooms[currentRoom];
       if (room.timer) clearInterval(room.timer);
-      io.to(currentRoom).emit('player_left');
-      delete rooms[currentRoom];
+      room.gameState = null;
+      room.timer = null;
+
+      room.players = room.players.filter(p => p.id !== socket.id);
+      if (room.players.length === 0) {
+        delete rooms[currentRoom];
+      } else {
+        if (room.creator === socket.id) {
+          room.creator = room.players[0].id;
+        }
+        io.to(currentRoom).emit('player_left');
+        emitLobbyUpdate(currentRoom);
+      }
     }
     currentRoom = null;
     playerIndex = null;
