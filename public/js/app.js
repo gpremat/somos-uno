@@ -5,13 +5,13 @@ let isCreator = false;
 let cards = [];
 let canPlay = true;
 let lastPlayTime = 0;
+let myPower = null;
+let myPowerUsed = false;
 
-const DIFFICULTIES = {
-  easy: 'Fácil',
-  medium: 'Medio',
-  hard: 'Difícil',
-  impossible: '¡Imposible!',
-  somosuno: 'Somos Uno',
+const ROUETTE_ANGLES = {
+  angel: 1740,
+  reloj: 1620,
+  vision: 1500,
 };
 
 // Screen navigation
@@ -38,6 +38,8 @@ function goHome() {
   myPlayerIndex = null;
   isCreator = false;
   canPlay = true;
+  myPower = null;
+  myPowerUsed = false;
 }
 
 // Difficulty selector
@@ -88,8 +90,20 @@ function leaveRoom() {
   goHome();
 }
 
-// Start game
-function startGame() {
+// Start roulette phase (from lobby, creator only)
+function startRoulette() {
+  socket.emit('start_roulette');
+}
+
+// Spin roulette
+function spinRoulette() {
+  document.getElementById('btn-spin').disabled = true;
+  document.getElementById('btn-spin').textContent = 'Girando...';
+  socket.emit('roulette_spin');
+}
+
+// Begin game after roulette (creator only)
+function beginGame() {
   socket.emit('start_game');
 }
 
@@ -103,6 +117,12 @@ function playCard(card) {
   socket.emit('play_card', { card });
 }
 
+// Use a power
+function usePower(power) {
+  if (myPowerUsed) return;
+  socket.emit('use_power', { power });
+}
+
 // ====== SOCKET EVENTS ======
 
 socket.on('connect', () => {
@@ -110,7 +130,7 @@ socket.on('connect', () => {
 });
 
 socket.on('disconnect', () => {
-  if (currentScreen === 'game' || currentScreen === 'lobby') {
+  if (currentScreen === 'game' || currentScreen === 'lobby' || currentScreen === 'roulette') {
     showLoading('Reconectando...');
   }
 });
@@ -140,12 +160,11 @@ socket.on('room_joined', (data) => {
 function updateLobby(code, mode) {
   showScreen('lobby');
   document.getElementById('room-code-display').textContent = code;
-  // Reset: Jugador 1 is connected, Jugador 2 waiting
   document.getElementById('player-slot-0').classList.add('connected');
   document.getElementById('player-status-0').textContent = 'Conectado';
   document.getElementById('player-slot-1').classList.remove('connected');
   document.getElementById('player-status-1').textContent = 'Esperando...';
-  document.getElementById('btn-start-game').style.display = 'none';
+  document.getElementById('btn-start-roulette').style.display = 'none';
   document.getElementById('lobby-waiting').style.display = 'block';
 }
 
@@ -156,10 +175,10 @@ socket.on('lobby_update', (data) => {
     document.getElementById('player-slot-1').classList.add('connected');
     document.getElementById('player-status-1').textContent = 'Conectado';
     if (isCreator) {
-      document.getElementById('btn-start-game').style.display = 'block';
+      document.getElementById('btn-start-roulette').style.display = 'block';
       document.getElementById('lobby-waiting').style.display = 'none';
     } else {
-      document.getElementById('btn-start-game').style.display = 'none';
+      document.getElementById('btn-start-roulette').style.display = 'none';
       document.getElementById('lobby-waiting').style.display = 'block';
       document.getElementById('lobby-waiting').textContent = 'Esperando al anfitrión...';
     }
@@ -168,10 +187,64 @@ socket.on('lobby_update', (data) => {
     `<span class="diff-badge">${data.difficulty.label} · ${data.difficulty.cards} cartas · ${data.difficulty.time}s</span>`;
 });
 
+// Roulette phase
+socket.on('roulette_phase', () => {
+  showScreen('roulette');
+  document.getElementById('btn-spin').disabled = false;
+  document.getElementById('btn-spin').textContent = 'GIRAR RULETA';
+  document.getElementById('my-power-result').style.display = 'none';
+  document.getElementById('btn-begin-game').style.display = 'none';
+  document.getElementById('pps-status-0').textContent = '⏳ Girando...';
+  document.getElementById('pps-status-1').textContent = '⏳ Girando...';
+  document.getElementById('player-power-0').classList.remove('done');
+  document.getElementById('player-power-1').classList.remove('done');
+
+  const wheel = document.getElementById('wheel');
+  wheel.style.transform = 'rotate(0deg)';
+  myPower = null;
+  myPowerUsed = false;
+});
+
+// Roulette result
+socket.on('roulette_result', (data) => {
+  const { playerIndex, power, powerData, bothComplete, powers } = data;
+
+  // Animate wheel if it's our result
+  if (playerIndex === myPlayerIndex) {
+    const wheel = document.getElementById('wheel');
+    const angle = ROUETTE_ANGLES[power];
+    wheel.style.transform = `rotate(${angle}deg)`;
+
+    setTimeout(() => {
+      document.getElementById('my-power-icon').textContent = powerData.icon;
+      document.getElementById('my-power-name').textContent = powerData.label;
+      document.getElementById('my-power-result').style.display = 'flex';
+      document.getElementById('my-power-result').style.borderColor = powerData.color;
+      myPower = power;
+    }, 3200);
+  }
+
+  // Update status
+  const slot = document.getElementById(`player-power-${playerIndex}`);
+  const status = document.getElementById(`pps-status-${playerIndex}`);
+  slot.classList.add('done');
+  status.textContent = `${powerData.icon} ${powerData.label}`;
+
+  if (bothComplete) {
+    if (isCreator) {
+      document.getElementById('btn-begin-game').style.display = 'block';
+    } else {
+      document.getElementById('btn-begin-game').style.display = 'none';
+    }
+  }
+});
+
 // Game start
 socket.on('game_start', (data) => {
   cards = data.cards;
   myPlayerIndex = data.playerIndex;
+  myPower = data.powers[myPlayerIndex];
+  myPowerUsed = false;
   showScreen('game');
   renderGame(data);
 });
@@ -203,10 +276,51 @@ function renderGame(data) {
   p0.textContent = 'Jugador 1';
   p1.textContent = 'Jugador 2';
 
-  // Timer: compute locally based on startTime
+  // Show powers bar
+  renderPowersBar(data.powers);
+
   const startTime = data.startTime;
   const duration = data.duration;
   startLocalTimer(startTime, duration);
+}
+
+function renderPowersBar(powers) {
+  const bar = document.getElementById('game-powers-bar');
+  bar.innerHTML = '';
+  const myPowerLabel = powers[myPlayerIndex];
+  if (!myPowerLabel) return;
+
+  const icons = { angel: '😇', reloj: '⌛', vision: '👁️' };
+  const labels = { angel: 'Ángel Guardián', reloj: 'Reloj de Arena', vision: 'Visión Infinita' };
+
+  // My power button
+  const myBtn = document.createElement('button');
+  myBtn.className = 'btn-power';
+  myBtn.id = 'btn-use-power';
+  myBtn.innerHTML = `${icons[myPowerLabel]} ${labels[myPowerLabel]}`;
+
+  if (myPowerLabel === 'angel') {
+    myBtn.disabled = true;
+    myBtn.title = 'Se activa automáticamente';
+  } else {
+    myBtn.addEventListener('click', () => {
+      usePower(myPowerLabel);
+      myBtn.disabled = true;
+      myBtn.classList.add('used');
+    });
+  }
+  bar.appendChild(myBtn);
+
+  // Opponent power (just display)
+  const oppIdx = myPlayerIndex === 0 ? 1 : 0;
+  const oppPower = powers[oppIdx];
+  if (oppPower) {
+    const oppLabel = document.createElement('span');
+    oppLabel.className = 'btn-power';
+    oppLabel.style.cursor = 'default';
+    oppLabel.innerHTML = `${icons[oppPower]} ${labels[oppPower]} (oponente)`;
+    bar.appendChild(oppLabel);
+  }
 }
 
 let timerAnimFrame = null;
@@ -248,16 +362,12 @@ function updateTimerDisplay(seconds, total) {
 }
 
 // Timer update from server (sync)
-socket.on('timer_update', (data) => {
-  // The local timer is the primary display, but this syncs it
-  // We use the local timer approach instead
-});
+socket.on('timer_update', () => {});
 
 // Card played
 socket.on('card_played', (data) => {
   const { card, playerIndex, playedCount, totalCards } = data;
 
-  // Remove card from hand if it was ours
   if (playerIndex === myPlayerIndex) {
     const hand = document.getElementById('card-hand');
     const cardEl = hand.querySelector(`[data-value="${card}"]`);
@@ -267,7 +377,6 @@ socket.on('card_played', (data) => {
     }
   }
 
-  // Add to played area
   const playedContainer = document.getElementById('played-cards');
   const playedEl = document.createElement('div');
   playedEl.className = 'played-card' + (playerIndex !== myPlayerIndex ? ' opponent' : '');
@@ -275,10 +384,74 @@ socket.on('card_played', (data) => {
   playedContainer.appendChild(playedEl);
   playedContainer.scrollLeft = playedContainer.scrollWidth;
 
-  // Re-enable card clicks after delay
   setTimeout(() => {
     canPlay = true;
   }, 500);
+});
+
+// Angel saved
+socket.on('angel_saved', (data) => {
+  const notif = document.getElementById('angel-notification');
+  notif.style.display = 'block';
+  setTimeout(() => {
+    notif.style.display = 'none';
+  }, 2000);
+
+  myPowerUsed = true;
+  document.getElementById('btn-use-power').classList.add('used');
+  document.getElementById('btn-use-power').textContent = '😇 Ángel Guardián (usado)';
+
+  setTimeout(() => {
+    canPlay = true;
+  }, 1000);
+});
+
+// Reloj used
+socket.on('reloj_used', (data) => {
+  const notif = document.createElement('div');
+  notif.className = 'reloj-notification';
+  notif.textContent = '⌛ +10 segundos';
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 2000);
+
+  if (data.playerIndex === myPlayerIndex) {
+    myPowerUsed = true;
+  }
+});
+
+// Vision reveal
+socket.on('vision_reveal', (data) => {
+  const overlay = document.getElementById('vision-overlay');
+  overlay.style.display = 'flex';
+
+  const renderVisionHand = (containerId, cardsList) => {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    cardsList.forEach((c, i) => {
+      const el = document.createElement('div');
+      el.className = 'vision-card';
+      el.style.animationDelay = `${i * 0.05}s`;
+      el.textContent = c;
+      container.appendChild(el);
+    });
+  };
+
+  renderVisionHand('vision-cards-0', data.player0Cards);
+  renderVisionHand('vision-cards-1', data.player1Cards);
+
+  // Show which player activated it
+  const label = document.querySelector('.vision-title');
+  const activator = data.playerIndex === myPlayerIndex ? 'Tú' : 'Tu compañero';
+  label.innerHTML = `👁️ ${activator} activó Visión Infinita`;
+
+  if (data.playerIndex === myPlayerIndex) {
+    myPowerUsed = true;
+  }
+});
+
+// Vision hide
+socket.on('vision_hide', () => {
+  document.getElementById('vision-overlay').style.display = 'none';
 });
 
 // Game victory
@@ -291,10 +464,8 @@ socket.on('game_victory', (data) => {
   document.getElementById('victory-time').textContent =
     `Tiempo restante: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
-  // Show played cards in order
   const container = document.getElementById('victory-cards');
   container.innerHTML = '';
-  // We'll show the cards from the played area
   const playedCards = document.querySelectorAll('.played-card');
   playedCards.forEach(el => {
     const div = document.createElement('div');
@@ -317,11 +488,13 @@ socket.on('game_defeat', (data) => {
 
 // Player left
 socket.on('player_left', () => {
-  if (currentScreen === 'lobby' || currentScreen === 'game') {
+  if (currentScreen === 'lobby' || currentScreen === 'game' || currentScreen === 'roulette') {
     showScreen('home');
     cards = [];
     myPlayerIndex = null;
     isCreator = false;
+    myPower = null;
+    myPowerUsed = false;
   }
 });
 

@@ -104,8 +104,45 @@
       <div class="lobby-difficulty" id="lobby-difficulty">
         <span class="diff-badge">Fácil · 3 cartas · 40s</span>
       </div>
-      <button class="btn btn-primary" id="btn-start-game" onclick="startGame()" style="display:none">COMENZAR PARTIDA</button>
+      <button class="btn btn-primary" id="btn-start-roulette" onclick="startRoulette()" style="display:none">GIRAR RULETA</button>
       <p id="lobby-waiting" class="waiting-text">Esperando al anfitrión...</p>
+    </div>
+  </div>
+
+  <!-- ROULETTE -->
+  <div id="screen-roulette" class="screen">
+    <div class="roulette-content">
+      <h2>Preparación</h2>
+      <p class="roulette-subtitle">Girá la ruleta para obtener un poder</p>
+
+      <div class="roulette-wheel-section" id="my-roulette-section">
+        <div class="wheel-wrapper">
+          <div class="wheel-pointer">▼</div>
+          <div class="wheel" id="wheel">
+            <div class="wheel-label wl-angel">😇</div>
+            <div class="wheel-label wl-reloj">⌛</div>
+            <div class="wheel-label wl-vision">👁️</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-spin" onclick="spinRoulette()">GIRAR RULETA</button>
+        <div id="my-power-result" class="power-result" style="display:none">
+          <span class="power-result-icon" id="my-power-icon"></span>
+          <span class="power-result-name" id="my-power-name"></span>
+        </div>
+      </div>
+
+      <div class="roulette-players-status" id="roulette-players-status">
+        <div class="player-power-slot" id="player-power-0">
+          <span class="pps-label">Jugador 1</span>
+          <span class="pps-status" id="pps-status-0">⏳ Girando...</span>
+        </div>
+        <div class="player-power-slot" id="player-power-1">
+          <span class="pps-label">Jugador 2</span>
+          <span class="pps-status" id="pps-status-1">⏳ Girando...</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-begin-game" onclick="beginGame()" style="display:none">EMPEZAR PARTIDA</button>
     </div>
   </div>
 
@@ -123,6 +160,8 @@
         <div class="player-badge" id="player-badge-1">Jugador 2</div>
       </div>
 
+      <div class="game-powers-bar" id="game-powers-bar"></div>
+
       <div class="game-played-area" id="played-area">
         <p class="played-label">Cartas jugadas</p>
         <div class="played-cards" id="played-cards"></div>
@@ -133,6 +172,28 @@
         <div class="card-hand" id="card-hand"></div>
       </div>
     </div>
+  </div>
+
+  <!-- VISION OVERLAY -->
+  <div id="vision-overlay" class="vision-overlay" style="display:none">
+    <div class="vision-content">
+      <p class="vision-title">👁️ Visión Infinita</p>
+      <div class="vision-cards-container">
+        <div class="vision-hand">
+          <p class="vision-hand-label">Jugador 1</p>
+          <div class="vision-cards" id="vision-cards-0"></div>
+        </div>
+        <div class="vision-hand">
+          <p class="vision-hand-label">Jugador 2</p>
+          <div class="vision-cards" id="vision-cards-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANGEL SAVED NOTIFICATION -->
+  <div id="angel-notification" class="angel-notification" style="display:none">
+    <span>😇 ¡Ángel Guardián te ha salvado!</span>
   </div>
 
   <!-- VICTORY -->
